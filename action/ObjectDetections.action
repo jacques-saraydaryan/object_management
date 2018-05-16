@@ -1,0 +1,8 @@
+# label of family of object to ros_color_detection_msgs
+# the labels size=0 means all objects
+string[] labels
+---
+robocup_msgs/EntityList entityList
+---
+#feedback
+int32 feedback
