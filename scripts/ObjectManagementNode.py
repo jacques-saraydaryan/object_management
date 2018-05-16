@@ -10,7 +10,7 @@ from robocup_msgs.msg import Entity2D,Entity2DList
 from object_management.msg import ObjectDetectionAction,ObjectDetectionResult
 
 
-class ObjectManagement():
+class ObjectManagementNode():
 
     def __init__(self):
         rospy.init_node('object_management_node', anonymous=False)
@@ -56,7 +56,7 @@ class ObjectManagement():
 def main():
     #""" main function
     #"""
-    node = ObjectManagement()
+    node = ObjectManagementNode()
 
 if __name__ == '__main__':
     main()
