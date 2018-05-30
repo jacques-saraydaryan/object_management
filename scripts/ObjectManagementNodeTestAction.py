@@ -28,6 +28,18 @@ def UseAction():
     rospy.loginfo(result)
 
 
+
+    labels=['Freedent_fruit','schweppes_agrum']
+    goal2 = ObjectDetectionGoal()
+    goal2.labels=labels
+    client.send_goal(goal2)
+
+    client.wait_for_result()
+    content_result=client.get_result()
+    result=content_result.labelList
+    rospy.loginfo(result)
+
+
 if __name__ == '__main__':
     try:
         UseAction()

@@ -89,7 +89,7 @@ class ObjectManagementNode():
         rospy.loginfo("----------BEGIN---------")
         for i in range(0,self.MOVE_HEAD_AROUND_NB_HIT):
             rospy.loginfo("------------------->")
-            resultListA=self._processMoveHeadAndImg(self.MOVE_HEAD_PITCH_ANGLE,self.MOVE_HEAD_YAW_ANGLE*i)
+            resultListA=self._processMoveHeadAndImg(self.MOVE_HEAD_PITCH_ANGLE,self.MOVE_HEAD_YAW_ANGLE*i,object_group_list)
             for label in resultListA:
                 if label in resultObjLabelMap:
                     resultObjLabelMap[label]=resultObjLabelMap[label]+1
@@ -98,7 +98,7 @@ class ObjectManagementNode():
 
         for i in range(0,self.MOVE_HEAD_AROUND_NB_HIT):
             rospy.loginfo("------------------->")
-            resultListB=self._processMoveHeadAndImg(self.MOVE_HEAD_PITCH_ANGLE,self.MOVE_HEAD_YAW_ANGLE*i*-1)
+            resultListB=self._processMoveHeadAndImg(self.MOVE_HEAD_PITCH_ANGLE,self.MOVE_HEAD_YAW_ANGLE*i*-1,object_group_list)
             for label in resultListB:
                 if label in resultObjLabelMap:
                     resultObjLabelMap[label]=resultObjLabelMap[label]+1
@@ -110,11 +110,11 @@ class ObjectManagementNode():
         #TODO return list of detected entity 2D
         return resultObjLabelMap.keys()
 
-    def _processMoveHeadAndImg(self,pitch_value,yaw_value):
+    def _processMoveHeadAndImg(self,pitch_value,yaw_value,object_group_list):
         resultLabelList=[]
         self.moveHead(pitch_value,yaw_value)
         rospy.sleep(2.0)
-        result=self._objectDetectionGateway([])
+        result=self._objectDetectionGateway(object_group_list)
         #rospy.loginfo(result)
         for entity in result.entities.entity2DList:
             rospy.loginfo(entity.label)
