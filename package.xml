@@ -14,7 +14,8 @@
   <build_depend>actionlib</build_depend>   
   <build_depend>message_runtime</build_depend>
   <build_depend>robocup_msgs</build_depend>
-
+  <build_depend>pepper_pose_for_nav</build_depend>
+  <build_depend>darknet_gateway_srvs</build_depend>
   
     
   <run_depend>rospy</run_depend>
@@ -24,7 +25,9 @@
   <run_depend>actionlib</run_depend>
   <run_depend>message_runtime</run_depend>
   <run_depend>robocup_msgs</run_depend>
-
+  <run_depend>pepper_pose_for_nav</run_depend>
+  <run_depend>darknet_gateway_srvs</run_depend>
+  
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

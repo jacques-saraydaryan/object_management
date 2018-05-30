@@ -7,18 +7,45 @@ import rospy
 import actionlib
 
 from robocup_msgs.msg import Entity2D,Entity2DList
+from pepper_pose_for_nav.srv import MoveHeadAtPosition
 from object_management.msg import ObjectDetectionAction,ObjectDetectionResult
+from darknet_gateway_srvs.srv import ObjectsDetectionGateway_Srv
 
 
 class ObjectManagementNode():
+    MOVE_HEAD_AROUND_NB_HIT=4
+    MOVE_HEAD_YAW_ANGLE=0.2
+    MOVE_HEAD_PITCH_ANGLE=0.2
 
     def __init__(self):
         rospy.init_node('object_management_node', anonymous=False)
         self.configure()
 
+        # Connect to move_head_pose_srv service
+        try:
+            rospy.wait_for_service('/move_head_pose_srv',5)
+            rospy.loginfo("end service move_head_pose_srv wait time")
+            self._moveHeadPose = rospy.ServiceProxy('move_head_pose_srv', MoveHeadAtPosition)
+        except Exception as e:
+            rospy.logerr("Service move_head_pose_srv call failed: %s" % e)
 
-        # Subscribe to the image 
-        #self.sub_rgb = rospy.Subscriber("/image", Image, self.rgb_callback, queue_size=1)
+
+        # Connect to move_head_pose_srv service
+        try:
+            rospy.wait_for_service('/object_detection_gateway_srv',5)
+            rospy.loginfo("end service object_detection_gateway_srv wait time")
+            self._objectDetectionGateway = rospy.ServiceProxy('object_detection_gateway_srv', ObjectsDetectionGateway_Srv)
+        except Exception as e:
+            rospy.logerr("Service object_detection_gateway_srv call failed: %s" % e)
+
+
+        # Connect to move_head_pose_srv service
+        try:
+            rospy.wait_for_service('/move_head_pose_srv',5)
+            rospy.loginfo("end service move_head_pose_srv wait time")
+            self._moveHeadPose = rospy.ServiceProxy('move_head_pose_srv', MoveHeadAtPosition)
+        except Exception as e:
+            rospy.logerr("Service move_head_pose_srv call failed: %s" % e)
         
          # create action server and start it
         self._actionServer = actionlib.SimpleActionServer('object_detection_action', ObjectDetectionAction, self.executeObjectDetectionActionServer, False)
@@ -32,18 +59,22 @@ class ObjectManagementNode():
         #self.NB_KMEAN_CLUSTER=rospy.get_param('kmean_cluster',3)
         #rospy.loginfo("Param: kmean_cluster:"+str(self.NB_KMEAN_CLUSTER))
         pass
-
-    def processObjectDetection(self,object_group_list):
-        #FIXME TODO
-        pass
+    
+    def moveHead(self,pitch_value,yaw_value):
+        try:
+            self._moveHeadPose = rospy.ServiceProxy('move_head_pose_srv', MoveHeadAtPosition)
+            result=self._moveHeadPose(pitch_value,yaw_value,True)
+        except Exception as e:
+            rospy.logerr("Service move_head_pose_srv call failed: %s" % e)
+            return
 
     def executeObjectDetectionActionServer(self, goal):
         isActionSucceed=False
         action_result = ObjectDetectionResult()
         try:
-            entityList =self.processObjectDetection(goal.labels)
+            labelList =self.processObjectDetection(goal.labels)
             #Create associated entityList
-            action_result.entityList=entityList
+            action_result.labelList=labelList
             
             isActionSucceed=True
         except Exception as e:
@@ -52,6 +83,44 @@ class ObjectManagementNode():
             self._actionServer.set_succeeded(action_result)
         else:
             self._actionServer.set_aborted()
+
+    def processObjectDetection(self,object_group_list):
+        resultObjLabelMap={}
+        rospy.loginfo("----------BEGIN---------")
+        for i in range(0,self.MOVE_HEAD_AROUND_NB_HIT):
+            rospy.loginfo("------------------->")
+            resultListA=self._processMoveHeadAndImg(self.MOVE_HEAD_PITCH_ANGLE,self.MOVE_HEAD_YAW_ANGLE*i)
+            for label in resultListA:
+                if label in resultObjLabelMap:
+                    resultObjLabelMap[label]=resultObjLabelMap[label]+1
+                else:
+                     resultObjLabelMap[label]=1
+
+        for i in range(0,self.MOVE_HEAD_AROUND_NB_HIT):
+            rospy.loginfo("------------------->")
+            resultListB=self._processMoveHeadAndImg(self.MOVE_HEAD_PITCH_ANGLE,self.MOVE_HEAD_YAW_ANGLE*i*-1)
+            for label in resultListB:
+                if label in resultObjLabelMap:
+                    resultObjLabelMap[label]=resultObjLabelMap[label]+1
+                else:
+                     resultObjLabelMap[label]=1
+        rospy.loginfo("----------END---------")
+        rospy.loginfo(resultObjLabelMap)
+
+        #TODO return list of detected entity 2D
+        return resultObjLabelMap.keys()
+
+    def _processMoveHeadAndImg(self,pitch_value,yaw_value):
+        resultLabelList=[]
+        self.moveHead(pitch_value,yaw_value)
+        rospy.sleep(2.0)
+        result=self._objectDetectionGateway([])
+        #rospy.loginfo(result)
+        for entity in result.entities.entity2DList:
+            rospy.loginfo(entity.label)
+            resultLabelList.append(entity.label)
+        return resultLabelList
+
 
 def main():
     #""" main function

@@ -16,6 +16,8 @@ find_package(catkin REQUIRED COMPONENTS
     actionlib_msgs 
     actionlib
     robocup_msgs
+    pepper_pose_for_nav
+    darknet_gateway_srvs
 )
 
 
