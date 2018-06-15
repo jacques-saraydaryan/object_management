@@ -27,9 +27,17 @@ def UseAction():
     #rospy.loginfo("ALL MAIN COLORS")
     rospy.loginfo(result)
 
+#diningtable
+#person
+#sofa
+#tvmonitor
+#desperados
+#jus_de_pomme
+#oasis_tropical
+#orangina
+#redbull
 
-
-    labels=['Freedent_fruit','schweppes_agrum']
+    labels=['jus_de_pomme','oasis_tropical','orangina','redbull']
     goal2 = ObjectDetectionGoal()
     goal2.labels=labels
     client.send_goal(goal2)
