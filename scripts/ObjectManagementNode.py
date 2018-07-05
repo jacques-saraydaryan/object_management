@@ -15,7 +15,7 @@ from darknet_gateway_srvs.srv import ObjectsDetectionGateway_Srv
 class ObjectManagementNode():
     MOVE_HEAD_AROUND_NB_HIT=4
     MOVE_HEAD_YAW_ANGLE=0.2
-    MOVE_HEAD_PITCH_ANGLE=0.2
+    MOVE_HEAD_PITCH_ANGLE=0.35
 
     def __init__(self):
         rospy.init_node('object_management_node', anonymous=False)
