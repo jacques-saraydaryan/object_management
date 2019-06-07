@@ -6,10 +6,15 @@ import time
 import rospy 
 import actionlib
 
+from math import sqrt, pow
+
 from robocup_msgs.msg import Entity2D,Entity2DList
 from pepper_pose_for_nav.srv import MoveHeadAtPosition
 from object_management.msg import ObjectDetectionAction,ObjectDetectionResult
-from darknet_gateway_srvs.srv import ObjectsDetectionGateway_Srv
+from object_management.msg import LookAtObjectAction,LookAtObjectResult
+from darknet_gateway_srvs.srv import ObjectsDetectionGateway_Srv, ObjectsDetectionGateway_distSorted_Srv 
+
+from dialogue_hri_srvs.srv import MoveTurn, PointAt
 
 
 class ObjectManagementNode():
@@ -29,8 +34,24 @@ class ObjectManagementNode():
         except Exception as e:
             rospy.logerr("Service move_head_pose_srv call failed: %s" % e)
 
+            
+        # Connect to move_turn_service service
+        try:
+            rospy.wait_for_service('move_turn_service',5)
+            rospy.loginfo("end service move_turn_service wait time")
+            self._moveTurn = rospy.ServiceProxy('move_turn_service', MoveTurn)
+        except Exception as e:
+            rospy.logerr("Service move_turn_service call failed: %s" % e)         
 
-        # Connect to move_head_pose_srv service
+        # Connect to move_turn_service service
+        try:
+            rospy.wait_for_service('point_at',5)
+            rospy.loginfo("end service point_at wait time")
+            self._moveTurn = rospy.ServiceProxy('point_at', PointAt)
+        except Exception as e:
+            rospy.logerr("Service point_at call failed: %s" % e)                
+
+        # Connect to object_detection_gateway_srv service
         try:
             rospy.wait_for_service('/object_detection_gateway_srv',5)
             rospy.loginfo("end service object_detection_gateway_srv wait time")
@@ -38,18 +59,22 @@ class ObjectManagementNode():
         except Exception as e:
             rospy.logerr("Service object_detection_gateway_srv call failed: %s" % e)
 
-
-        # Connect to move_head_pose_srv service
+        # Connect to object_detection_gateway_distSorted_srv service
         try:
-            rospy.wait_for_service('/move_head_pose_srv',5)
-            rospy.loginfo("end service move_head_pose_srv wait time")
-            self._moveHeadPose = rospy.ServiceProxy('move_head_pose_srv', MoveHeadAtPosition)
+            rospy.wait_for_service('/object_detection_gateway_distSorted_srv',5)
+            rospy.loginfo("end service object_detection_gateway_distSorted_srv wait time")
+            self._objectDetectionDistSortedGateway = rospy.ServiceProxy('object_detection_gateway_distSorted_srv', ObjectsDetectionGateway_distSorted_Srv)
         except Exception as e:
-            rospy.logerr("Service move_head_pose_srv call failed: %s" % e)
+            rospy.logerr("Service object_detection_gateway_distSorted_srv call failed: %s" % e)
+
         
          # create action server and start it
         self._actionServer = actionlib.SimpleActionServer('object_detection_action', ObjectDetectionAction, self.executeObjectDetectionActionServer, False)
         self._actionServer.start()
+
+         # create action server and start it
+        self._actionServerLookAtObject = actionlib.SimpleActionServer('look_at_object_action', LookAtObjectAction, self.executeLookAtObjectActionServer, False)
+        self._actionServerLookAtObject.start()        
 
         rospy.spin()
 
@@ -67,6 +92,23 @@ class ObjectManagementNode():
         except Exception as e:
             rospy.logerr("Service move_head_pose_srv call failed: %s" % e)
             return
+
+    def moveTurn(self,rad):
+        try:
+            self._moveTurn = rospy.ServiceProxy('move_turn_service', MoveTurn)
+            result=self._moveTurn(rad)
+        except Exception as e:
+            rospy.logerr("Service move_turn_service call failed: %s" % e)
+            return
+
+    def pointAt(self,x, y, z, head, arm, duration):
+        try:
+            self._pointAt = rospy.ServiceProxy('point_at', PointAt)
+            result=self._pointAt(x, y, z, head, arm, duration)
+        except Exception as e:
+            rospy.logerr("Service point_at call failed: %s" % e)
+            return            
+            
 
     def executeObjectDetectionActionServer(self, goal):
         isActionSucceed=False
@@ -121,6 +163,50 @@ class ObjectManagementNode():
             resultLabelList.append(entity.label)
         return resultLabelList
 
+
+
+    #TODO : 
+    def executeLookAtObjectActionServer(self, goal):
+        isActionSucceed=False
+        action_result = LookAtObjectResult()
+        try:
+            result = self.processTurnToObjectCenter(goal.labels, 0, head=False, base=True)
+            #Create associated entityList
+            #action_result.labelList=labelList
+            
+            isActionSucceed=True
+        except Exception as e:
+            rospy.logwarn("unable to execute action %s:, error:[%s]",str(action_result), str(e))
+        if isActionSucceed:
+            self._actionServerLookAtObject.set_succeeded(action_result)
+        else:
+            self._actionServerLookAtObject.set_aborted()        
+
+    def processTurnToObjectCenter(self, object_group_list, index, head=True, base=False):
+        result=self._objectDetectionDistSortedGateway(object_group_list)
+        if index >= len(result.pitchList):
+            index = len(result.pitchList) - 1
+        if index < 0 :
+            index = len(result.pitchList) - index
+            if index < 0:
+                index = 0
+
+        print "pitch = %.3f \t yaw = %.3f" % (result.pitchList[index],result.yawList[index])      
+
+        if head == True and base == False :
+            self.moveHead(result.pitchList[index],result.yawList[index])
+
+        if head == False and base == True :
+            self.moveTurn(result.yawList[index])
+            
+        if head == True and base == True :
+            self.moveTurn(result.yawList[index])
+            self.moveHead(result.pitchList[index],0.0)
+
+
+        self.pointAt(3, 0, 0, False, True, 1)
+    
+        return result
 
 def main():
     #""" main function
