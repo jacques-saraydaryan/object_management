@@ -35,7 +35,7 @@ def UseActionLookAtObject():
     client = actionlib.SimpleActionClient('look_at_object_action', LookAtObjectAction)
 
     client.wait_for_server()
-    labels=['jus_de_pomme']
+    labels=['chair']
     goal = LookAtObjectGoal()
     goal.labels=labels
 
