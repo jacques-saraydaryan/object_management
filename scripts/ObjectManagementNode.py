@@ -1,9 +1,9 @@
-#!/usr/bin/env python  
+#!/usr/bin/env python
 __author__ ='Jacques Saraydaryan'
 
 import sys
 import time
-import rospy 
+import rospy
 import actionlib
 
 from math import sqrt, pow
@@ -12,7 +12,7 @@ from robocup_msgs.msg import Entity2D,Entity2DList
 from pepper_pose_for_nav.srv import MoveHeadAtPosition
 from object_management.msg import ObjectDetectionAction,ObjectDetectionResult
 from object_management.msg import LookAtObjectAction,LookAtObjectResult
-from darknet_gateway_srvs.srv import ObjectsDetectionGateway_Srv, ObjectsDetectionGateway_distSorted_Srv 
+from darknet_gateway_srvs.srv import ObjectsDetectionGateway_Srv, ObjectsDetectionGateway_distSorted_Srv
 
 from dialogue_hri_srvs.srv import MoveTurn, PointAt
 
@@ -34,14 +34,14 @@ class ObjectManagementNode():
         except Exception as e:
             rospy.logerr("Service move_head_pose_srv call failed: %s" % e)
 
-            
+
         # Connect to move_turn_service service
         try:
             rospy.wait_for_service('move_turn_service',5)
             rospy.loginfo("end service move_turn_service wait time")
             self._moveTurn = rospy.ServiceProxy('move_turn_service', MoveTurn)
         except Exception as e:
-            rospy.logerr("Service move_turn_service call failed: %s" % e)         
+            rospy.logerr("Service move_turn_service call failed: %s" % e)
 
         # Connect to move_turn_service service
         try:
@@ -49,7 +49,7 @@ class ObjectManagementNode():
             rospy.loginfo("end service point_at wait time")
             self._moveTurn = rospy.ServiceProxy('point_at', PointAt)
         except Exception as e:
-            rospy.logerr("Service point_at call failed: %s" % e)                
+            rospy.logerr("Service point_at call failed: %s" % e)
 
         # Connect to object_detection_gateway_srv service
         try:
@@ -67,14 +67,14 @@ class ObjectManagementNode():
         except Exception as e:
             rospy.logerr("Service object_detection_gateway_distSorted_srv call failed: %s" % e)
 
-        
+
          # create action server and start it
         self._actionServer = actionlib.SimpleActionServer('object_detection_action', ObjectDetectionAction, self.executeObjectDetectionActionServer, False)
         self._actionServer.start()
 
          # create action server and start it
         self._actionServerLookAtObject = actionlib.SimpleActionServer('look_at_object_action', LookAtObjectAction, self.executeLookAtObjectActionServer, False)
-        self._actionServerLookAtObject.start()        
+        self._actionServerLookAtObject.start()
 
         rospy.spin()
 
@@ -84,7 +84,7 @@ class ObjectManagementNode():
         #self.NB_KMEAN_CLUSTER=rospy.get_param('kmean_cluster',3)
         #rospy.loginfo("Param: kmean_cluster:"+str(self.NB_KMEAN_CLUSTER))
         pass
-    
+
     def moveHead(self,pitch_value,yaw_value):
         try:
             self._moveHeadPose = rospy.ServiceProxy('move_head_pose_srv', MoveHeadAtPosition)
@@ -107,8 +107,8 @@ class ObjectManagementNode():
             result=self._pointAt(x, y, z, head, arm, duration)
         except Exception as e:
             rospy.logerr("Service point_at call failed: %s" % e)
-            return            
-            
+            return
+
 
     def executeObjectDetectionActionServer(self, goal):
         isActionSucceed=False
@@ -117,7 +117,7 @@ class ObjectManagementNode():
             labelList =self.processObjectDetection(goal.labels)
             #Create associated entityList
             action_result.labelList=labelList
-            
+
             isActionSucceed=True
         except Exception as e:
             rospy.logwarn("unable to execute action %s:, error:[%s]",str(action_result), str(e))
@@ -165,24 +165,23 @@ class ObjectManagementNode():
 
 
 
-    #TODO : 
+    #TODO :
     def executeLookAtObjectActionServer(self, goal):
         isActionSucceed=False
         action_result = LookAtObjectResult()
         try:
-            result = self.processTurnToObjectCenter(goal.labels, 0, head=False, base=True)
-            #Create associated entityList
-            #action_result.labelList=labelList
-            
+            result = self.processTurnToObjectCenter(goal.labels, goal.index, goal.head, goal.base, goal.finger)
+            #Action output
+            action_result.nb_people=len(result.pitchList)
             isActionSucceed=True
         except Exception as e:
             rospy.logwarn("unable to execute action %s:, error:[%s]",str(action_result), str(e))
         if isActionSucceed:
             self._actionServerLookAtObject.set_succeeded(action_result)
         else:
-            self._actionServerLookAtObject.set_aborted()        
+            self._actionServerLookAtObject.set_aborted()
 
-    def processTurnToObjectCenter(self, object_group_list, index, head=True, base=False):
+    def processTurnToObjectCenter(self, object_group_list, index, head, base, finger):
         result=self._objectDetectionDistSortedGateway(object_group_list)
         if index >= len(result.pitchList):
             index = len(result.pitchList) - 1
@@ -191,21 +190,21 @@ class ObjectManagementNode():
             if index < 0:
                 index = 0
 
-        print "pitch = %.3f \t yaw = %.3f" % (result.pitchList[index],result.yawList[index])      
+        print "pitch = %.3f \t yaw = %.3f" % (result.pitchList[index],result.yawList[index])
 
         if head == True and base == False :
             self.moveHead(result.pitchList[index],result.yawList[index])
 
         if head == False and base == True :
             self.moveTurn(result.yawList[index])
-            
+
         if head == True and base == True :
             self.moveTurn(result.yawList[index])
             self.moveHead(result.pitchList[index],0.0)
 
+        if finger == True:
+            self.pointAt(3, 0, 0, False, True, 1)
 
-        self.pointAt(3, 0, 0, False, True, 1)
-    
         return result
 
 def main():

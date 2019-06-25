@@ -1,6 +1,10 @@
 string[] labels
+int index
+bool head
+bool base
+bool finger
 ---
-string[] labelList
+int nb_label
 ---
 #feedback
 int32 feedback
