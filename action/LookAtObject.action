@@ -1,10 +1,10 @@
 string[] labels
-int index
+int32 index
 bool head
 bool base
 bool finger
 ---
-int nb_label
+int32 nb_label
 ---
 #feedback
 int32 feedback

@@ -28,7 +28,7 @@ class ObjectManagementNode():
 
         # Connect to move_head_pose_srv service
         try:
-            rospy.wait_for_service('/move_head_pose_srv',5)
+            rospy.wait_for_service('/move_head_pose_srv', 10.0)
             rospy.loginfo("end service move_head_pose_srv wait time")
             self._moveHeadPose = rospy.ServiceProxy('move_head_pose_srv', MoveHeadAtPosition)
         except Exception as e:
@@ -37,7 +37,7 @@ class ObjectManagementNode():
 
         # Connect to move_turn_service service
         try:
-            rospy.wait_for_service('move_turn_service',5)
+            rospy.wait_for_service('move_turn_service', 10.0)
             rospy.loginfo("end service move_turn_service wait time")
             self._moveTurn = rospy.ServiceProxy('move_turn_service', MoveTurn)
         except Exception as e:
@@ -45,7 +45,7 @@ class ObjectManagementNode():
 
         # Connect to move_turn_service service
         try:
-            rospy.wait_for_service('point_at',5)
+            rospy.wait_for_service('point_at', 10.0)
             rospy.loginfo("end service point_at wait time")
             self._moveTurn = rospy.ServiceProxy('point_at', PointAt)
         except Exception as e:
@@ -53,7 +53,7 @@ class ObjectManagementNode():
 
         # Connect to object_detection_gateway_srv service
         try:
-            rospy.wait_for_service('/object_detection_gateway_srv',5)
+            rospy.wait_for_service('/object_detection_gateway_srv', 10.0)
             rospy.loginfo("end service object_detection_gateway_srv wait time")
             self._objectDetectionGateway = rospy.ServiceProxy('object_detection_gateway_srv', ObjectsDetectionGateway_Srv)
         except Exception as e:
@@ -61,7 +61,7 @@ class ObjectManagementNode():
 
         # Connect to object_detection_gateway_distSorted_srv service
         try:
-            rospy.wait_for_service('/object_detection_gateway_distSorted_srv',5)
+            rospy.wait_for_service('/object_detection_gateway_distSorted_srv', 10.0)
             rospy.loginfo("end service object_detection_gateway_distSorted_srv wait time")
             self._objectDetectionDistSortedGateway = rospy.ServiceProxy('object_detection_gateway_distSorted_srv', ObjectsDetectionGateway_distSorted_Srv)
         except Exception as e:
