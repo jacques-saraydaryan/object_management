@@ -69,8 +69,8 @@ class ObjectManagementNode():
 
 
          # create action server and start it
-        self._actionServer = actionlib.SimpleActionServer('object_detection_action', ObjectDetectionAction, self.executeObjectDetectionActionServer, False)
-        self._actionServer.start()
+        self._actionServerObjectDetection = actionlib.SimpleActionServer('object_detection_action', ObjectDetectionAction, self.executeObjectDetectionActionServer, False)
+        self._actionServerObjectDetection.start()
 
          # create action server and start it
         self._actionServerLookAtObject = actionlib.SimpleActionServer('look_at_object_action', LookAtObjectAction, self.executeLookAtObjectActionServer, False)
@@ -114,19 +114,23 @@ class ObjectManagementNode():
         isActionSucceed=False
         action_result = ObjectDetectionResult()
         try:
-            labelList =self.processObjectDetection(goal.labels)
+            labeldict = {}
+            if goal.moveHead == True:
+                labeldict = self.processObjectDetectionWithLookAround(goal.labels)
+            else:
+                labeldict = self.processObjectDetectionWithLookAhead(goal.labels)
             #Create associated entityList
-            action_result.labelList=labelList
-
+            action_result.labelList=labeldict.keys()
+            action_result.labelFound=labeldict.values()
             isActionSucceed=True
         except Exception as e:
             rospy.logwarn("unable to execute action %s:, error:[%s]",str(action_result), str(e))
         if isActionSucceed:
-            self._actionServer.set_succeeded(action_result)
+            self._actionServerObjectDetection.set_succeeded(action_result)
         else:
-            self._actionServer.set_aborted()
+            self._actionServerObjectDetection.set_aborted()
 
-    def processObjectDetection(self,object_group_list):
+    def processObjectDetectionWithLookAround(self, object_group_list):
         resultObjLabelMap={}
         rospy.loginfo("----------BEGIN---------")
         for i in range(0,self.MOVE_HEAD_AROUND_NB_HIT):
@@ -136,21 +140,36 @@ class ObjectManagementNode():
                 if label in resultObjLabelMap:
                     resultObjLabelMap[label]=resultObjLabelMap[label]+1
                 else:
-                     resultObjLabelMap[label]=1
-
+                    resultObjLabelMap[label]=1
         for i in range(0,self.MOVE_HEAD_AROUND_NB_HIT):
             rospy.loginfo("------------------->")
-            resultListB=self._processMoveHeadAndImg(self.MOVE_HEAD_PITCH_ANGLE,self.MOVE_HEAD_YAW_ANGLE*i*-1,object_group_list)
+            resultListB=self._processMoveHeadAndImg(-self.MOVE_HEAD_PITCH_ANGLE,self.MOVE_HEAD_YAW_ANGLE*i*-1,object_group_list)
             for label in resultListB:
                 if label in resultObjLabelMap:
                     resultObjLabelMap[label]=resultObjLabelMap[label]+1
                 else:
-                     resultObjLabelMap[label]=1
+                    resultObjLabelMap[label]=1
+        self.moveHead(0.0,0.0)
         rospy.loginfo("----------END---------")
         rospy.loginfo(resultObjLabelMap)
-
         #TODO return list of detected entity 2D
-        return resultObjLabelMap.keys()
+        return resultObjLabelMap
+
+    def processObjectDetectionWithLookAhead(self, object_group_list):
+        resultObjLabelMap={}
+        rospy.loginfo("----------BEGIN---------")
+        result=self._objectDetectionGateway(object_group_list)
+        #rospy.loginfo(result)
+        for entity in result.entities.entity2DList:
+            rospy.loginfo(entity.label)
+            if entity.label in resultObjLabelMap:
+                resultObjLabelMap[entity.label]=resultObjLabelMap[entity.label]+1
+            else:
+                resultObjLabelMap[entity.label]=1
+        rospy.loginfo("----------END---------")
+        rospy.loginfo(resultObjLabelMap)
+        #TODO return list of detected entity 2D
+        return resultObjLabelMap
 
     def _processMoveHeadAndImg(self,pitch_value,yaw_value,object_group_list):
         resultLabelList=[]
