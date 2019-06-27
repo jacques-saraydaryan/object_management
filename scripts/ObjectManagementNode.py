@@ -182,8 +182,6 @@ class ObjectManagementNode():
             resultLabelList.append(entity.label)
         return resultLabelList
 
-
-
     #TODO :
     def executeLookAtObjectActionServer(self, goal):
         isActionSucceed=False
@@ -202,27 +200,30 @@ class ObjectManagementNode():
 
     def processTurnToObjectCenter(self, object_group_list, index, head, base, finger):
         result=self._objectDetectionDistSortedGateway(object_group_list)
-        if index >= len(result.pitchList):
-            index = len(result.pitchList) - 1
-        if index < 0 :
-            index = len(result.pitchList) - index
-            if index < 0:
-                index = 0
+        if len(result.yawList) > 0:
+            if index >= len(result.pitchList):
+                index = len(result.pitchList) - 1
+            if index < 0 :
+                index = len(result.pitchList) - index
+                if index < 0:
+                    index = 0
 
-        print "pitch = %.3f \t yaw = %.3f" % (result.pitchList[index],result.yawList[index])
+            print "pitch = %.3f \t yaw = %.3f" % (result.pitchList[index],result.yawList[index])
 
-        if head == True and base == False :
-            self.moveHead(result.pitchList[index],result.yawList[index])
+            if head == True and base == False :
+                self.moveHead(result.pitchList[index],result.yawList[index])
 
-        if head == False and base == True :
-            self.moveTurn(result.yawList[index])
+            if head == False and base == True :
+                self.moveTurn(result.yawList[index])
 
-        if head == True and base == True :
-            self.moveTurn(result.yawList[index])
-            self.moveHead(result.pitchList[index],0.0)
+            if head == True and base == True :
+                self.moveTurn(result.yawList[index])
+                self.moveHead(result.pitchList[index],0.0)
 
-        if finger == True:
-            self.pointAt(3, 0, 0, False, True, 1)
+            if finger == True:
+                self.pointAt(3, 0, 0, False, True, 1)
+        else:
+            rospy.logwarn("Nothing found")
 
         return result
 
