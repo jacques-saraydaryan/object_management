@@ -28,16 +28,20 @@ def UseAction():
     #rospy.loginfo("ALL MAIN COLORS")
     rospy.loginfo(result)
 
-#TODO : 
+#TODO :
 def UseActionLookAtObject():
     rospy.init_node('object_management_node_action_test', anonymous=False)
 
     client = actionlib.SimpleActionClient('look_at_object_action', LookAtObjectAction)
 
     client.wait_for_server()
-    labels=['chair']
+    labels=['person']
     goal = LookAtObjectGoal()
     goal.labels=labels
+    goal.index=0
+    goal.head=False
+    goal.base=False
+    goal.finger=2
 
     client.send_goal(goal)
 
@@ -45,11 +49,11 @@ def UseActionLookAtObject():
 
     content_result=client.get_result()
 
-    result=content_result.labelList
+    result=content_result.nb_label
 
     #rospy.loginfo("color:%s, color_web:%s, color_temp:%s, color_brightness_name:%s, RGB:[%s,%s,%s], percentage:%s",str(result.color_name),str(result.color_web),str(result.color_temp),str(result.color_brightness_name),str(result.rgb[0]),str(result.rgb[1]),str(result.rgb[2]),str(result.percentage_of_img))
     #rospy.loginfo("ALL MAIN COLORS")
-    rospy.loginfo(result)    
+    rospy.loginfo(result)
 
 #diningtable
 #person

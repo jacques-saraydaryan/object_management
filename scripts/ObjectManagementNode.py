@@ -6,7 +6,7 @@ import time
 import rospy
 import actionlib
 
-from math import sqrt, pow
+from math import sqrt, pow, tan
 
 from robocup_msgs.msg import Entity2D,Entity2DList
 from pepper_pose_for_nav.srv import MoveHeadAtPosition
@@ -189,7 +189,7 @@ class ObjectManagementNode():
         try:
             result = self.processTurnToObjectCenter(goal.labels, goal.index, goal.head, goal.base, goal.finger)
             #Action output
-            action_result.nb_people=len(result.pitchList)
+            action_result.nb_label = len(result.yawList)
             isActionSucceed=True
         except Exception as e:
             rospy.logwarn("unable to execute action %s:, error:[%s]",str(action_result), str(e))
@@ -199,6 +199,17 @@ class ObjectManagementNode():
             self._actionServerLookAtObject.set_aborted()
 
     def processTurnToObjectCenter(self, object_group_list, index, head, base, finger):
+        """
+        Move / Point toward detected object
+        index : id of the object to point in the object list
+        head : if True move the head toward object
+        base : if True turn to have the object in front of the pepper
+        finger : Point or not the object with the pepper arm
+                  0 : Does not point
+                  1 : Point then release the arm
+                  2 : Point and leave the arm in position (useful to say text whereas pointing).
+                      Use release_arm service after to release.
+        """
         result=self._objectDetectionDistSortedGateway(object_group_list)
         if len(result.yawList) > 0:
             if index >= len(result.pitchList):
@@ -208,7 +219,7 @@ class ObjectManagementNode():
                 if index < 0:
                     index = 0
 
-            print "pitch = %.3f \t yaw = %.3f" % (result.pitchList[index],result.yawList[index])
+            # print "pitch = %.3f \t yaw = %.3f" % (result.pitchList[index],result.yawList[index])
 
             if head == True and base == False :
                 self.moveHead(result.pitchList[index],result.yawList[index])
@@ -220,11 +231,26 @@ class ObjectManagementNode():
                 self.moveTurn(result.yawList[index])
                 self.moveHead(result.pitchList[index],0.0)
 
-            if finger == True:
-                self.pointAt(3, 0, 0, False, True, 1)
+            if finger > 0:
+                time = -1.0 if finger == 2 else 1.0
+                # Object in the front arm dead angle : we need to move a bit to correctly point
+                if (abs(result.yawList[index]) < 0.26):
+                    s = 1 if (result.yawList[index] > 0) else -1
+                    self.moveTurn(s*0.26)
+                    x = 3.0
+                    y = x*tan(result.yawList[index] - s*0.26)
+                    z = x*tan(result.pitchList[index] - s*0.26)
+                    self.pointAt(x, y, z, False, True, time)
+                    self.moveTurn(-s*0.26)
+                #Object on the left or right : everything ok to point with the arm 
+                else:
+                    x = 3.0
+                    y = x*tan(result.yawList[index])
+                    z = x*tan(result.pitchList[index])
+                    self.pointAt(x, y, z, False, True, time)
+                # self.moveTurn(-result.yawList[index])
         else:
             rospy.logwarn("Nothing found")
-
         return result
 
 def main():
