@@ -1,4 +1,5 @@
 string[] labels
+string path
 int32 index
 bool head
 bool base

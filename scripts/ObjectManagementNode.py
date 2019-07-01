@@ -11,7 +11,7 @@ from math import sqrt, pow, tan
 from robocup_msgs.msg import Entity2D,Entity2DList
 from pepper_pose_for_nav.srv import MoveHeadAtPosition
 from object_management.msg import ObjectDetectionAction,ObjectDetectionResult
-from object_management.msg import LookAtObjectAction,LookAtObjectResult
+from object_management.msg import LookAtObjectAction, LookAtObjectResult
 from darknet_gateway_srvs.srv import ObjectsDetectionGateway_Srv, ObjectsDetectionGateway_distSorted_Srv
 
 from dialogue_hri_srvs.srv import MoveTurn, PointAt
@@ -109,8 +109,11 @@ class ObjectManagementNode():
             rospy.logerr("Service point_at call failed: %s" % e)
             return
 
-
     def executeObjectDetectionActionServer(self, goal):
+        """
+        Detect the asked object.
+        The objects can either be detected just in the direct sight of the robot or we can ask it to look around.
+        """
         isActionSucceed=False
         action_result = ObjectDetectionResult()
         try:
@@ -118,7 +121,7 @@ class ObjectManagementNode():
             if goal.moveHead == True:
                 labeldict = self.processObjectDetectionWithLookAround(goal.labels)
             else:
-                labeldict = self.processObjectDetectionWithLookAhead(goal.labels)
+                labeldict = self.processObjectDetectionWithGivenSight(goal.labels, goal.path)
             #Create associated entityList
             action_result.labelList=labeldict.keys()
             action_result.labelFound=labeldict.values()
@@ -131,19 +134,25 @@ class ObjectManagementNode():
             self._actionServerObjectDetection.set_aborted()
 
     def processObjectDetectionWithLookAround(self, object_group_list):
+        """
+        Look around to detect the asked objects.
+        Return a mapping of theses objects (aka dict[name_of_object] = number_of_objects)
+        """
         resultObjLabelMap={}
         rospy.loginfo("----------BEGIN---------")
+        # Move from left to right - head is looking low
         for i in range(0,self.MOVE_HEAD_AROUND_NB_HIT):
             rospy.loginfo("------------------->")
-            resultListA=self._processMoveHeadAndImg(self.MOVE_HEAD_PITCH_ANGLE,self.MOVE_HEAD_YAW_ANGLE*i,object_group_list)
+            resultListA=self._processMoveHeadAndImg(self.MOVE_HEAD_PITCH_ANGLE, self.MOVE_HEAD_YAW_ANGLE*i, object_group_list)
             for label in resultListA:
                 if label in resultObjLabelMap:
                     resultObjLabelMap[label]=resultObjLabelMap[label]+1
                 else:
                     resultObjLabelMap[label]=1
+        # Move right to left  - head is looking high
         for i in range(0,self.MOVE_HEAD_AROUND_NB_HIT):
             rospy.loginfo("------------------->")
-            resultListB=self._processMoveHeadAndImg(-self.MOVE_HEAD_PITCH_ANGLE,self.MOVE_HEAD_YAW_ANGLE*i*-1,object_group_list)
+            resultListB=self._processMoveHeadAndImg(-self.MOVE_HEAD_PITCH_ANGLE, self.MOVE_HEAD_YAW_ANGLE*i*-1, object_group_list)
             for label in resultListB:
                 if label in resultObjLabelMap:
                     resultObjLabelMap[label]=resultObjLabelMap[label]+1
@@ -155,10 +164,14 @@ class ObjectManagementNode():
         #TODO return list of detected entity 2D
         return resultObjLabelMap
 
-    def processObjectDetectionWithLookAhead(self, object_group_list):
+    def processObjectDetectionWithGivenSight(self, object_group_list, img_file_path):
+        """
+        Detect objects from a given list in the current image or a image file.
+        Return a mapping of theses objects (aka dict[name_of_object] = number_of_objects)
+        """
         resultObjLabelMap={}
         rospy.loginfo("----------BEGIN---------")
-        result=self._objectDetectionGateway(object_group_list)
+        result=self._objectDetectionGateway(object_group_list, img_file_path)
         #rospy.loginfo(result)
         for entity in result.entities.entity2DList:
             rospy.loginfo(entity.label)
@@ -171,7 +184,10 @@ class ObjectManagementNode():
         #TODO return list of detected entity 2D
         return resultObjLabelMap
 
-    def _processMoveHeadAndImg(self,pitch_value,yaw_value,object_group_list):
+    def _processMoveHeadAndImg(self, pitch_value, yaw_value, object_group_list):
+        """
+        Move head and process image to detect objects from object_group_list
+        """
         resultLabelList=[]
         self.moveHead(pitch_value,yaw_value)
         rospy.sleep(2.0)
@@ -184,12 +200,15 @@ class ObjectManagementNode():
 
     #TODO :
     def executeLookAtObjectActionServer(self, goal):
+        """
+        Find objects and designed it in the desired manner.
+        """
         isActionSucceed=False
         action_result = LookAtObjectResult()
         try:
-            result = self.processTurnToObjectCenter(goal.labels, goal.index, goal.head, goal.base, goal.finger)
+            result = self.processTurnToObjectCenter(goal.labels, goal.path, goal.index, goal.head, goal.base, goal.finger)
             #Action output
-            action_result.nb_label = len(result.yawList)
+            action_result.nb_label = len(result.yaw_list)
             isActionSucceed=True
         except Exception as e:
             rospy.logwarn("unable to execute action %s:, error:[%s]",str(action_result), str(e))
@@ -198,9 +217,11 @@ class ObjectManagementNode():
         else:
             self._actionServerLookAtObject.set_aborted()
 
-    def processTurnToObjectCenter(self, object_group_list, index, head, base, finger):
+    def processTurnToObjectCenter(self, object_group_list, img_file_path, index, head, base, finger):
         """
         Move / Point toward detected object
+        object_group_list : group of object to detect
+        img_file_path : path for the image file if it exist (or not the current image from image topic will be process)
         index : id of the object to point in the object list
         head : if True move the head toward object
         base : if True turn to have the object in front of the pepper
@@ -210,45 +231,45 @@ class ObjectManagementNode():
                   2 : Point and leave the arm in position (useful to say text whereas pointing).
                       Use release_arm service after to release.
         """
-        result=self._objectDetectionDistSortedGateway(object_group_list)
-        if len(result.yawList) > 0:
-            if index >= len(result.pitchList):
-                index = len(result.pitchList) - 1
+        result=self._objectDetectionDistSortedGateway(object_group_list, img_file_path)
+        if len(result.yaw_list) > 0:
+            if index >= len(result.pitch_list):
+                index = len(result.pitch_list) - 1
             if index < 0 :
-                index = len(result.pitchList) - index
+                index = len(result.pitch_list) - index
                 if index < 0:
                     index = 0
 
-            # print "pitch = %.3f \t yaw = %.3f" % (result.pitchList[index],result.yawList[index])
+            # print "pitch = %.3f \t yaw = %.3f" % (result.pitch_list[index],result.yaw_list[index])
 
             if head == True and base == False :
-                self.moveHead(result.pitchList[index],result.yawList[index])
+                self.moveHead(result.pitch_list[index],result.yaw_list[index])
 
             if head == False and base == True :
-                self.moveTurn(result.yawList[index])
+                self.moveTurn(result.yaw_list[index])
 
             if head == True and base == True :
-                self.moveTurn(result.yawList[index])
-                self.moveHead(result.pitchList[index],0.0)
+                self.moveTurn(result.yaw_list[index])
+                self.moveHead(result.pitch_list[index],0.0)
 
             if finger > 0:
                 time = -1.0 if finger == 2 else 1.0
                 # Object in the front arm dead angle : we need to move a bit to correctly point
-                if (abs(result.yawList[index]) < 0.26):
-                    s = 1 if (result.yawList[index] > 0) else -1
+                if (abs(result.yaw_list[index]) < 0.26):
+                    s = 1 if (result.yaw_list[index] > 0) else -1
                     self.moveTurn(s*0.26)
                     x = 3.0
-                    y = x*tan(result.yawList[index] - s*0.26)
-                    z = x*tan(result.pitchList[index] - s*0.26)
+                    y = x*tan(result.yaw_list[index] - s*0.26)
+                    z = x*tan(result.pitch_list[index] - s*0.26)
                     self.pointAt(x, y, z, False, True, time)
                     self.moveTurn(-s*0.26)
-                #Object on the left or right : everything ok to point with the arm 
+                #Object on the left or right : everything ok to point with the arm
                 else:
                     x = 3.0
-                    y = x*tan(result.yawList[index])
-                    z = x*tan(result.pitchList[index])
+                    y = x*tan(result.yaw_list[index])
+                    z = x*tan(result.pitch_list[index])
                     self.pointAt(x, y, z, False, True, time)
-                # self.moveTurn(-result.yawList[index])
+                # self.moveTurn(-result.yaw_list[index])
         else:
             rospy.logwarn("Nothing found")
         return result
