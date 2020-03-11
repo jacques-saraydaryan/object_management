@@ -1,12 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <launch>
+  
+  <!-- <remap from="/kinect2/hd/image_color" to="/camera/rgb/image_raw"/>  -->
+  <!-- <remap from="/camera/rgb/image_raw" to="/kinect2/hd/image_color"/> -->
+  <!-- <remap from="/pepper_robot/camera/front/image_raw" to="/kinect2/hd/image_color"/> -->
+  
+  <!-- <remap from="/pepper_robot/camera/front/image_raw" to="/usb_cam/image_raw"/> -->
+
   <!-- Console launch prefix -->
   <arg name="launch_prefix" default=""/>
 
   <!-- Config and weights folder. -->
   <arg name="yolo_weights_path"          default="$(find darknet_gateway_config)/config/darknet_data"/>
-
   <arg name="yolo_config_path"           default="$(find darknet_gateway_config)/config/darknet_data"/>
 
   <!-- Load parameters -->
@@ -27,7 +33,5 @@
    
   </node>
 
-
-
- <!--<node name="republish" type="republish" pkg="image_transport" output="screen" 	args="compressed in:=/front_camera/image_raw raw out:=/camera/image_raw" /> -->
+    <!-- <node name="republish" type="republish" pkg="image_transport" output="screen" 	args="compressed in:=/front_camera/image_raw raw out:=/camera/image_raw" /> -->
 </launch>
