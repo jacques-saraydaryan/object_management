@@ -12,11 +12,11 @@
   <!-- Load parameters -->
 
   <rosparam command="load" ns="darknet_ros" file="$(find darknet_gateway_config)/config/darknet_ros_elo_follow.yaml"/> 
-  <!--
-  <rosparam file="$(find darknet_gateway_config)/config/darknet_data/darknet_ros_model_elo.yaml"/>
-	-->
+  
+  <rosparam file="$(find darknet_gateway_config)/config/darknet_ros_elo.yaml"/>
+	<!--
   <rosparam command="load" ns="darknet_ros" file="$(find darknet_gateway_config)/config/darknet_data/darknet_ros_model_elo.yaml"/>
-
+   -->
 
 
 
