@@ -22,6 +22,11 @@ find_package(catkin REQUIRED COMPONENTS
     darknet_gateway_srvs
     image_transport
 )
+## Generate services in the 'srv' folder
+add_service_files(
+  FILES
+  ConfigureFLowSwitcherService.srv
+)
 
 
 ## Generate actions in the 'action' folder

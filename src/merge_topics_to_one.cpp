@@ -13,6 +13,9 @@
 #include <exception>
 #include "mutex"
 #include <thread>
+#include "object_management/ConfigureFLowSwitcherService.h"
+
+std::mutex mtx; 
 
 // Publisher used to send merged images
 image_transport::Publisher merged_topic_pub;
@@ -37,6 +40,9 @@ int cameraQueueSize;
 float last_time_in_sec=0;
 std::map<int, std::string> topic_map; 
 std::map<int, image_transport::Subscriber> subscriber_map; 
+
+image_transport::ImageTransport *it_ptr;
+ros::Rate *rate;
 
 
 sensor_msgs::Image::ConstPtr get_current_img(){
@@ -123,7 +129,8 @@ void img1Callback(const sensor_msgs::ImageConstPtr& msg, int i){
 
 void redirect_images(){
 
-	ros::Rate rate(PUBLISH_FREQUENCY);
+	ros::Rate rate_temp(PUBLISH_FREQUENCY);
+	rate= &rate_temp;
 	ros::Time last_switch = ros::Time::now();
 
 	ROS_INFO("before loop");
@@ -134,14 +141,79 @@ void redirect_images(){
 			merged_topic_pub.publish(get_current_img());
 		}
 		//ros::spinOnce();
-		rate.sleep();
-		if(ros::Time::now().toSec()- last_switch.toSec() > SWITCH_PERIOD){
-			switch_source();
-			last_switch = ros::Time::now();
+		
+		try{
+			rate->sleep();
+			mtx.lock();
+			if(SWITCH_PERIOD != -1){
+				if(ros::Time::now().toSec()- last_switch.toSec() > SWITCH_PERIOD){
+					switch_source();
+					last_switch = ros::Time::now();
+				}
+			}
+			mtx.unlock();
+		}catch(std::runtime_error& ex){
+			ROS_WARN("Exception: [%s]", ex.what());
 		}
+		
 	}
 }
 
+
+bool mergeFlowConfigServiceCallback(object_management::ConfigureFLowSwitcherService::Request &req,object_management::ConfigureFLowSwitcherService::Response &resp){
+	
+	if( req.flow_list.size()){
+		std::vector<std::string> topic_list;
+		topic_list=req.flow_list;
+		int i=0;
+
+		//unsubscrive old topics
+		//for(auto& sub: subscriber_map) {
+		//	sub.second.shutdown();
+		//}
+		//subscriber_map.clear();
+		//topic_map.clear();
+		mtx.lock();
+		img_source_list.clear();
+
+		for(auto& sub: topic_map) {
+			for(auto& topic_name: topic_list) {
+				ROS_INFO("- compare: %s, %s", topic_name.c_str(),sub.second.c_str());
+				if( std::strcmp(topic_name.c_str(),sub.second.c_str()) == 0){
+					img_source_list.push_back(sub.first);
+					ROS_INFO("- new source to monitor: %i, %s", sub.first,sub.second.c_str());
+				}
+			}
+		}
+
+		ROS_INFO("- img_source_list size: %i", img_source_list.size());
+
+
+		//for(const auto& value: topic_list) {
+		//	topic_map.insert(std::pair<int, std::string>(i, value)); 
+		//	img_source_list.push_back(i);
+		//	subscriber_map.insert((std::pair<int, image_transport::Subscriber>(i,it_ptr->subscribe(value, 1, boost::bind(img1Callback, _1, i)))));
+		//	i++;
+		//	ROS_INFO("- /object_management/img_topic_sources: %s", value.c_str());
+		//}  
+	}
+
+
+	//if(req.publish_frequency != 0){
+	//	PUBLISH_FREQUENCY =req.publish_frequency;
+	//	rate->reset();
+	//	ros::Rate rate_temp(PUBLISH_FREQUENCY);
+	//	rate= &rate_temp;
+	//}
+
+	if(req.switch_period != 0){
+		SWITCH_PERIOD = req.switch_period;
+	}
+
+	mtx.unlock();
+	resp.result =true;
+	return true;
+}
 
 
 
@@ -154,6 +226,7 @@ int main(int argc, char **argv) {
 	ros::init(argc,argv,"merge_topics_to_one");
 	ros::NodeHandle nh;
 	image_transport::ImageTransport it(nh);
+	it_ptr = &it;
     
     //ROS_INFO("Param values:");
 //
@@ -207,6 +280,9 @@ int main(int argc, char **argv) {
 		i++;
 		ROS_INFO("- /object_management/img_topic_sources: %s", value.c_str());
 	}  
+
+
+	ros::ServiceServer service = nh.advertiseService("merge_flow_config_service", mergeFlowConfigServiceCallback);
 	
 	//sub_topic_2= it.subscribe("//camera/color/image_raw", 1, img2Callback);
 	//sub_topic_3= it.subscribe("/image3", 1, img3Callback);

@@ -1,0 +1,9 @@
+# test sample
+# rosservice call /merge_flow_config_service '{"flow_list":["/camera/color/image_raw", "/camera_base/color/image_raw"],"switch_period": 1}'
+#
+# CAUTION flow_list must be the same topîc name defined as parameter of the merge_topics_to_one node.
+string[] flow_list # e.g ["/kinect/color/image_raw","/camera/color/image_raw","/camera_base/color/image_raw"] 
+#int32 publish_frequency # e.g 5 (hz)
+float32 switch_period # -1 means never swich, 1 means switch every 1 second
+---
+bool result
