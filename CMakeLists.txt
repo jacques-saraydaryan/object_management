@@ -65,3 +65,4 @@ include_directories(${catkin_INCLUDE_DIRS})
 # ROS nodes
 add_executable(merge_topics_to_one src/merge_topics_to_one.cpp) 
 target_link_libraries(merge_topics_to_one ${catkin_LIBRARIES})
+add_dependencies(merge_topics_to_one ${PROJECT_NAME}_generate_messages_cpp)
