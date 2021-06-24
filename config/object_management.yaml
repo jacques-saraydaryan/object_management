@@ -1,4 +1,4 @@
 object_management:
   publish_frequency: 10
-  switch_period: 1.0
-  img_topic_sources: ["/kinect/color/image_raw","/camera/color/image_raw","/camera_base/color/image_raw"]
+  switch_period: -1.0
+  img_topic_sources: ["/camera/color/image_raw","/fake_camera"]
